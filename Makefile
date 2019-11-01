@@ -1,14 +1,18 @@
-.PHONY: all install
+
+TARGET		= network-switch
+INSTALL_DIR = $(PREFIX)/usr/local/bin
+
+.PHONY: all install uninstall
 
 all:
 
-install: /usr/local/bin/network-switch
+$(INSTALL_DIR):
+	mkdir -p $(INSTALL_DIR)
 
-### Executable =================================================================
+$(INSTALL_DIR)/$(TARGET): $(INSTALL_DIR) $(TARGET).sh
+	install $(TARGET).sh $(INSTALL_DIR)/$(TARGET)
 
-/usr/local/bin:
-	mkdir -p /usr/local/bin
+install: $(INSTALL_DIR)/$(TARGET)
 
-/usr/local/bin/network-switch: /usr/local/bin network-switch.sh
-	install network-switch.sh /usr/local/bin/network-switch
-
+uninstall:
+	rm -f $(INSTALL_DIR)/$(TARGET)
