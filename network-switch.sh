@@ -17,7 +17,7 @@ wifi|wi-fi|wan)
 
 eth|ethernet|lan|local)
     
-	ethernet_state=disconnected
+    ethernet_state=disconnected
     ;;
 
 "")
@@ -34,21 +34,31 @@ esac
 
 unset ethernet_info
 
+#### Check wi-fi adapter connected =============================================
+
+if [[ "$ethernet_state" == 'connected' ]]
+then
+    if [[ -z "$(LC_ALL=C nmcli device status | grep ' wifi ')" ]]
+    then
+        notify-send -i network-wireless-disconnected 'Wi-Fi adapter not connected'
+        exit 1
+    fi
+fi
+
 #### Change network ============================================================
 
 case "$ethernet_state" in
 
 disconnected)
 
-	nmcli radio wifi off
+    nmcli radio wifi off
     nmcli device connect ${ethernet_name}
-	;;
+    ;;
 
 connected)
 
-	nmcli device disconnect ${ethernet_name}
-	nmcli radio wifi on
-	;;
+    nmcli device disconnect ${ethernet_name}
+    nmcli radio wifi on
+    ;;
 
 esac
-
