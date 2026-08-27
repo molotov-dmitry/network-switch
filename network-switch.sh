@@ -25,7 +25,7 @@ fi
 
 if [[ -z "${lan_device}" ]]
 then
-    lan_device="$(LC_ALL=C nmcli device status | grep ' ethernet ' | head -n 1 | cut -d ' ' -f 1)"
+    lan_device="$(nmcli -t -f DEVICE,STATE,TYPE device status | grep ':ethernet$' | grep -v ':unavailable:ethernet$' | head -n1 | cut -d ':' -f 1)"
 fi
 
 #### Check LAN device found ----------------------------------------------------
