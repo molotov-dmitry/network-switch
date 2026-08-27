@@ -1,10 +1,40 @@
 #!/bin/bash
 
+readonly CONFIG_FILE='/etc/network-switch/network-switch.conf'
+
 #### Get ethernet interface name ===============================================
 
-ethernet_info=$(LC_ALL=C nmcli device status | grep ' ethernet ' | head -n1 | tr -s '[:space:]' | cut -d ' ' -f 1,3)
+#### Check config file -----------------------------------------------------
 
-ethernet_name=${ethernet_info%\ *}
+if [[ -f "${CONFIG_FILE}" ]]
+then
+    lan_mac=$(grep '^lan=' "${CONFIG_FILE}" | cut -d '=' -f 2)
+    if [[ -n "${lan_mac}" ]]
+    then
+        lan_device="$(ip -o link | grep -i "${lan_mac}" | cut -d ' ' -f 2 | tr -d ':')"
+    fi
+    
+    wan_mac=$(grep '^wan=' "${CONFIG_FILE}" | cut -d '=' -f 2)
+    if [[ -n "${wan_mac}" ]]
+    then
+        wan_device="$(ip -o link | grep -i "${wan_mac}" | cut -d ' ' -f 2 | tr -d ':')"
+    fi
+fi
+
+#### Get first ethernet device as lan device -----------------------------------
+
+if [[ -z "${lan_device}" ]]
+then
+    lan_device="$(LC_ALL=C nmcli device status | grep ' ethernet ' | head -n 1 | cut -d ' ' -f 1)"
+fi
+
+#### Check LAN device found ----------------------------------------------------
+
+if [[ -z "${lan_device}" ]]
+then
+    notify-send -i network-wired-unavailable 'LAN device not found'
+    exit 1
+fi
 
 #### Get action ================================================================
 
@@ -12,17 +42,17 @@ case "$1" in
 
 wifi|wi-fi|wan)
 
-    ethernet_state=connected
+    lan_state=connected
     ;;
 
 eth|ethernet|lan|local)
     
-    ethernet_state=disconnected
+    lan_state=disconnected
     ;;
 
 "")
 
-    ethernet_state=${ethernet_info#*\ }
+    lan_state="$(nmcli -t -g GENERAL.STATE device show "${lan_device}" | cut -d '(' -f 2 | cut -d ')' -f 1)"
     ;;
 
 *)
@@ -36,7 +66,7 @@ unset ethernet_info
 
 #### Check wi-fi adapter connected =============================================
 
-if [[ "$ethernet_state" == 'connected' ]]
+if [[ -z "${wan_device}" && "${lan_state}" == 'connected' ]]
 then
     if [[ -z "$(LC_ALL=C nmcli device status | grep ' wifi ')" ]]
     then
@@ -47,18 +77,36 @@ fi
 
 #### Change network ============================================================
 
-case "$ethernet_state" in
+case "${lan_state}" in
 
 disconnected)
 
-    nmcli radio wifi off
-    nmcli device connect ${ethernet_name}
+    if [[ -z "${wan_device}" ]]
+    then
+        nmcli radio wifi off
+    else
+        nmcli device disconnect ${wan_device}
+    fi
+    
+    nmcli device connect ${lan_device}
     ;;
 
 connected)
 
-    nmcli device disconnect ${ethernet_name}
-    nmcli radio wifi on
+    nmcli device disconnect ${lan_device}
+    
+    if [[ -z "${wan_device}" ]]
+    then
+        nmcli radio wifi on
+    else
+        nmcli device connect ${wan_device}
+    fi
+    
     ;;
+    
+*)
+
+    notify-send -i network-wired-available "Unknown LAN device state: '${lan_state}'"
+    
 
 esac
